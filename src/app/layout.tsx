@@ -1,12 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { env } from "@/config/env";
 import ClientProviders from "@/components/ClientProviders";
 import { Suspense } from "react";
 
+// Use process.env directly for build-time metadata (only NEXT_PUBLIC vars available)
+const appTitle = process.env.NEXT_PUBLIC_APP_TITLE || "AI Chat Assistant";
+const appDescription = process.env.NEXT_PUBLIC_APP_DESCRIPTION || "Your intelligent AI assistant powered by Agentforce";
+
 export const metadata: Metadata = {
-  title: env.NEXT_PUBLIC_APP_TITLE,
-  description: env.NEXT_PUBLIC_APP_DESCRIPTION,
+  title: appTitle,
+  description: appDescription,
   keywords: ["AI", "chat", "assistant", "Agentforce", "Salesforce", "Heroku"],
   authors: [{ name: "Heroku" }],
   creator: "Heroku",
@@ -21,24 +24,24 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: env.NEXT_PUBLIC_APP_TITLE,
-    description: env.NEXT_PUBLIC_APP_DESCRIPTION,
+    title: appTitle,
+    description: appDescription,
     type: 'website',
     locale: 'en_US',
-    siteName: env.NEXT_PUBLIC_APP_TITLE,
+    siteName: appTitle,
     images: [
       {
         url: '/images/heroku.svg',
         width: 1200,
         height: 630,
-        alt: env.NEXT_PUBLIC_APP_TITLE,
+        alt: appTitle,
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: env.NEXT_PUBLIC_APP_TITLE,
-    description: env.NEXT_PUBLIC_APP_DESCRIPTION,
+    title: appTitle,
+    description: appDescription,
     images: ['/images/heroku.svg'],
     creator: '@heroku',
   },
@@ -87,7 +90,7 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#0176D3" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content={env.NEXT_PUBLIC_APP_TITLE} />
+        <meta name="apple-mobile-web-app-title" content={appTitle} />
       </head>
       <body className="m-0 p-0">
         <Suspense fallback={null}>
