@@ -10,20 +10,20 @@ export interface AgentForceConfig {
 }
 
 class AgentForceConfiguration implements AgentForceConfig {
-  readonly baseUrl: string;
-  readonly credentials: {
-    clientId: string;
-    clientSecret: string;
-  };
-  readonly agentId: string;
+  // Use getters for lazy evaluation - only access env at runtime, not build time
+  get baseUrl(): string {
+    return env.SF_MY_DOMAIN_URL.replace("https://", "");
+  }
 
-  constructor() {
-    this.baseUrl = env.SF_MY_DOMAIN_URL.replace("https://", "");
-    this.credentials = {
+  get credentials(): { clientId: string; clientSecret: string } {
+    return {
       clientId: env.SF_CONSUMER_KEY,
       clientSecret: env.SF_CONSUMER_SECRET,
     };
-    this.agentId = env.SF_AGENT_ID;
+  }
+
+  get agentId(): string {
+    return env.SF_AGENT_ID;
   }
 
   getAuthEndpoint(): string {
@@ -45,8 +45,6 @@ class AgentForceConfiguration implements AgentForceConfig {
   getStreamingEndpoint(sessionId: string): string {
     return `/einstein/ai-agent/v1/sessions/${sessionId}/messages/stream`;
   }
-
-
 }
 
-export const agentConfig = new AgentForceConfiguration(); 
+export const agentConfig = new AgentForceConfiguration();
