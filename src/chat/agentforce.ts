@@ -4,6 +4,7 @@ import "server-only";
 import { unstable_cacheTag as cacheTag, revalidateTag } from "next/cache";
 import axios from "axios";
 import { agentConfig } from "./config";
+import { getJwtConnectionName } from "@/config/env";
 
 // Authentication mode types
 export type AuthMode = "direct" | "applink";
@@ -92,10 +93,10 @@ const getToken = async (): Promise<AuthCredentials> => {
 /**
  * Get authentication credentials from Heroku AppLink SDK.
  * Uses the JWT authorization configured via `heroku salesforce:authorizations:add:jwt`.
- * @param authorizationName - The developer name of the AppLink authorization (default: "org_jwt")
+ * The authorization name is read from the JWT_CONNECTION_NAME env var.
  */
-const getTokenFromAppLink = async (authorizationName = "org_jwt"): Promise<AuthCredentials> => {
-  console.log(`[agentforce] Fetching credentials from AppLink SDK (authorization: ${authorizationName})`);
+const getTokenFromAppLink = async (): Promise<AuthCredentials> => {
+  const authorizationName = getJwtConnectionName();
   try {
     const applink = await import("@heroku/applink");
     const sdk = applink.init();
@@ -107,15 +108,13 @@ const getTokenFromAppLink = async (authorizationName = "org_jwt"): Promise<AuthC
       throw new Error("Invalid AppLink authorization response: missing access token");
     }
     
-    console.log(`[agentforce] ✓ AppLink SDK returned credentials (domainUrl: ${authData.domainUrl}, token: ${authData.accessToken.substring(0, 20)}...)`);
-    
     return {
       accessToken: authData.accessToken,
       // Agent API uses api.salesforce.com, not the My Domain URL
       apiInstanceUrl: "https://api.salesforce.com",
     };
   } catch (error) {
-    console.error("[agentforce] ✗ AppLink authentication failed:", error);
+    console.error("AppLink authentication failed:", error);
     if (error instanceof Error) {
       throw new Error(`AppLink authentication failed: ${error.message}`);
     }
@@ -128,15 +127,10 @@ const getTokenFromAppLink = async (authorizationName = "org_jwt"): Promise<AuthC
  * @param mode - "direct" for OAuth client credentials, "applink" for Heroku AppLink SDK
  */
 const getCredentials = async (mode: AuthMode = "direct"): Promise<AuthCredentials> => {
-  console.log(`[agentforce] getCredentials called with mode: ${mode}`);
   if (mode === "applink") {
-    const creds = await getTokenFromAppLink();
-    console.log(`[agentforce] AppLink credentials obtained - API URL: ${creds.apiInstanceUrl}`);
-    return creds;
+    return getTokenFromAppLink();
   }
-  const creds = await getToken();
-  console.log(`[agentforce] Direct OAuth credentials obtained - API URL: ${creds.apiInstanceUrl}`);
-  return creds;
+  return getToken();
 };
 
 export const newSession = async (agentId?: string, authMode: AuthMode = "direct") => {

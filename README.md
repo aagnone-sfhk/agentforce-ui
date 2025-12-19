@@ -57,11 +57,14 @@ heroku salesforce:connect:jwt \
     --username trailsignup.d122a25d342798@salesforce.com
 
 heroku salesforce:authorizations:jwt:add \
-    org_jwt \
-    --client-id 3MVG9Rr0EZ2YOVMZngR8.D6lbT0EsYcVJGwOURP07Po89aofj3sN7ovR4BRKbjzICc2jcNbsyzkhX8NtLo2e3 \
+    <your-authorization-name> \
+    --client-id <your-connected-app-client-id> \
     --jwt-key-file jwt/server.key \
-    --username trailsignup.d122a25d342798@salesforce.com \
+    --username <your-salesforce-username> \
     --login-url https://login.salesforce.com
+
+# Set the authorization name as a config var
+heroku config:set JWT_CONNECTION_NAME=<your-authorization-name>
 ```
 
 ## Local Development

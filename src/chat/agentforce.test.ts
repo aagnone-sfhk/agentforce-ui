@@ -46,6 +46,11 @@ vi.mock('@heroku/applink', () => ({
   }),
 }));
 
+// Mock env config - JWT_CONNECTION_NAME
+vi.mock('@/config/env', () => ({
+  getJwtConnectionName: () => 'test-jwt-connection',
+}));
+
 describe('Agentforce Authentication', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -139,8 +144,8 @@ describe('Agentforce Authentication', () => {
       const { newSession } = await import('./agentforce');
       const result = await newSession('test-agent', 'applink');
 
-      // Should call AppLink SDK
-      expect(mockGetAuthorization).toHaveBeenCalledWith('org_jwt');
+      // Should call AppLink SDK with the connection name from env
+      expect(mockGetAuthorization).toHaveBeenCalledWith('test-jwt-connection');
 
       // Should use api.salesforce.com for the session creation
       expect(mockAxiosRequest).toHaveBeenCalledWith(

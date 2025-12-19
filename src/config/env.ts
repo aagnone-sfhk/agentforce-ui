@@ -68,3 +68,15 @@ export function getAuthMode(): AuthModeConfig {
   if (mode === "applink") return "applink";
   return "direct"; // default
 }
+
+/**
+ * Get the JWT connection name for AppLink authorization.
+ * Must be set when SF_AUTH_MODE is "applink".
+ */
+export function getJwtConnectionName(): string {
+  const name = process.env.JWT_CONNECTION_NAME;
+  if (!name) {
+    throw new Error("JWT_CONNECTION_NAME env var is required when using AppLink authentication");
+  }
+  return name;
+}
