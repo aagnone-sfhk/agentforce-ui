@@ -24,6 +24,8 @@ const nextConfig = {
       },
     },
   },
+  // Exclude applink SDK from bundling - it uses pino with native transports
+  serverExternalPackages: ["@heroku/applink", "pino", "pino-pretty"],
 };
 
 export default nextConfig;
