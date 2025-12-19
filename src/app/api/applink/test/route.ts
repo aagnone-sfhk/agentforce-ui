@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import * as applink from "@heroku/applink";
+
+// Force dynamic rendering - SDK cannot be evaluated at build time
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   // Log verbose request information
@@ -29,6 +31,9 @@ export async function GET(request: NextRequest) {
   console.log("=================================================");
 
   try {
+    // Dynamic import to avoid build-time evaluation
+    const applink = await import("@heroku/applink");
+    
     // Initialize SDK
     console.log("Initializing AppLink SDK...");
     const sdk = applink.init();
