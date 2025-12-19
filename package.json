@@ -14,6 +14,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@heroku/applink": "^1.0.0",
     "axios": "^1.8.1",
     "next": "15.4.5",
     "react": "^19.1.1",

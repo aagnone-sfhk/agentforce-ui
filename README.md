@@ -42,6 +42,28 @@ Before getting started, you'll need to set up your Salesforce Agentforce Agent. 
 
 [![Agentforce UI Walkthrough Video](https://i9.ytimg.com/vi_webp/wLgScF30rHM/mqdefault.webp?v=68cdcab7&sqp=CLCRy8YG&rs=AOn4CLAzcZ454ZpvAWGChJ18JxtDg1ddVg)](https://youtu.be/wLgScF30rHM)
 
+### Install/Update the Heroku AppLink CLI Plugin
+
+```bash
+heroku plugins:install @heroku-cli/plugin-applink
+```
+
+```bash
+heroku salesforce:connect:jwt \
+    sf-jwt-agnone-storm \
+    -a agentforce-applink \
+    --client-id 3MVG9Rr0EZ2YOVMZngR8.D6lbT0EsYcVJGwOURP07Po89aofj3sN7ovR4BRKbjzICc2jcNbsyzkhX8NtLo2e3 \
+    --jwt-key-file jwt/server.key \
+    --username trailsignup.d122a25d342798@salesforce.com
+
+heroku salesforce:authorizations:jwt:add \
+    org_jwt \
+    --client-id 3MVG9Rr0EZ2YOVMZngR8.D6lbT0EsYcVJGwOURP07Po89aofj3sN7ovR4BRKbjzICc2jcNbsyzkhX8NtLo2e3 \
+    --jwt-key-file jwt/server.key \
+    --username trailsignup.d122a25d342798@salesforce.com \
+    --login-url https://login.salesforce.com
+```
+
 ## Local Development
 
 ### 1. Clone the Repository

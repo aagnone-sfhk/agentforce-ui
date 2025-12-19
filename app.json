@@ -6,6 +6,11 @@
   "scripts": {
     "postdeploy": "curl --fail --location -X POST -H \"Content-Type: application/json\" -d \"{\\\"deploy_context\\\":\\\"${DEPLOY_CONTEXT}\\\",\\\"deployed_at\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\"}\" \"https://deploy.herokuapps.ai/heroku-app-deploy-events\""
   },
+  "addons": [
+    {
+      "plan": "heroku-applink"
+    }
+  ],
   "env": {
     "SF_MY_DOMAIN_URL": {
       "description": "My Domain URL for your Salesforce org",
