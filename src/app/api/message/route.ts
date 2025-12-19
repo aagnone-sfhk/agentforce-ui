@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendStreamingMessage } from "@/chat/agentforce";
+import { getAuthMode } from "@/config/env";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +22,8 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    const contentStream = await sendStreamingMessage(message, sequenceId, agentId);
+    const authMode = getAuthMode();
+    const contentStream = await sendStreamingMessage(message, sequenceId, agentId, authMode);
     const headers = new Headers({
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",

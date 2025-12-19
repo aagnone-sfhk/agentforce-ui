@@ -1,11 +1,17 @@
 import { z } from "zod";
 
+// Auth mode schema - validates "direct" or "applink"
+const authModeSchema = z.enum(["direct", "applink"]).default("direct");
+
 const envSchema = z.object({
   // Salesforce Configuration
   SF_MY_DOMAIN_URL: z.string().url(),
   SF_CONSUMER_KEY: z.string().min(1),
   SF_CONSUMER_SECRET: z.string().min(1),
   SF_AGENT_ID: z.string().min(1),
+  
+  // Authentication mode: "direct" (OAuth) or "applink" (Heroku AppLink SDK)
+  SF_AUTH_MODE: authModeSchema,
   
   // UI Configuration (shared between client and server)
   NEXT_PUBLIC_APP_TITLE: z.string().min(1).default("AI Chat Assistant"),
@@ -28,6 +34,7 @@ function validateEnv(): Env {
       SF_CONSUMER_KEY: process.env.SF_CONSUMER_KEY,
       SF_CONSUMER_SECRET: process.env.SF_CONSUMER_SECRET,
       SF_AGENT_ID: process.env.SF_AGENT_ID,
+      SF_AUTH_MODE: process.env.SF_AUTH_MODE,
       NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE,
       NEXT_PUBLIC_APP_DESCRIPTION: process.env.NEXT_PUBLIC_APP_DESCRIPTION,
       NEXT_PUBLIC_APP_INTRO_MESSAGE: process.env.NEXT_PUBLIC_APP_INTRO_MESSAGE,
@@ -48,3 +55,16 @@ export const env = new Proxy({} as Env, {
     return validateEnv()[prop];
   },
 });
+
+// Export auth mode type for use in other modules
+export type AuthModeConfig = "direct" | "applink";
+
+/**
+ * Get the configured authentication mode.
+ * Can be accessed independently without validating all env vars.
+ */
+export function getAuthMode(): AuthModeConfig {
+  const mode = process.env.SF_AUTH_MODE;
+  if (mode === "applink") return "applink";
+  return "direct"; // default
+}
