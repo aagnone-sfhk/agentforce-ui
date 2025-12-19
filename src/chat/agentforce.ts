@@ -5,6 +5,14 @@ import { unstable_cacheTag as cacheTag, revalidateTag } from "next/cache";
 import axios from "axios";
 import { agentConfig } from "./config";
 
+// Authentication mode types
+export type AuthMode = "direct" | "applink";
+
+interface AuthCredentials {
+  accessToken: string;
+  apiInstanceUrl: string;
+}
+
 // Simple retry utility for transient failures
 const retryOperation = async <T>(
   operation: () => Promise<T>,
@@ -37,7 +45,7 @@ const retryOperation = async <T>(
   throw lastError!;
 };
 
-const getToken = async () => {
+const getToken = async (): Promise<AuthCredentials> => {
   "use cache";
   try {
     const params = new URLSearchParams();
@@ -81,10 +89,52 @@ const getToken = async () => {
   }
 };
 
-export const newSession = async (agentId?: string) => {
+/**
+ * Get authentication credentials from Heroku AppLink SDK.
+ * Uses the JWT authorization configured via `heroku salesforce:authorizations:add:jwt`.
+ * @param authorizationName - The developer name of the AppLink authorization (default: "org_jwt")
+ */
+const getTokenFromAppLink = async (authorizationName = "org_jwt"): Promise<AuthCredentials> => {
+  try {
+    const applink = await import("@heroku/applink");
+    const sdk = applink.init();
+    const auth = await sdk.addons.applink.getAuthorization(authorizationName);
+    
+    const authData = auth as unknown as { accessToken: string; domainUrl: string };
+    
+    if (!authData.accessToken) {
+      throw new Error("Invalid AppLink authorization response: missing access token");
+    }
+    
+    return {
+      accessToken: authData.accessToken,
+      // Agent API uses api.salesforce.com, not the My Domain URL
+      apiInstanceUrl: "https://api.salesforce.com",
+    };
+  } catch (error) {
+    console.error("AppLink authentication failed:", error);
+    if (error instanceof Error) {
+      throw new Error(`AppLink authentication failed: ${error.message}`);
+    }
+    throw new Error("AppLink authentication failed: Unable to retrieve credentials");
+  }
+};
+
+/**
+ * Get authentication credentials using the specified mode.
+ * @param mode - "direct" for OAuth client credentials, "applink" for Heroku AppLink SDK
+ */
+const getCredentials = async (mode: AuthMode = "direct"): Promise<AuthCredentials> => {
+  if (mode === "applink") {
+    return getTokenFromAppLink();
+  }
+  return getToken();
+};
+
+export const newSession = async (agentId?: string, authMode: AuthMode = "direct") => {
   return retryOperation(async () => {
     try {
-      const { accessToken, apiInstanceUrl } = await getToken();
+      const { accessToken, apiInstanceUrl } = await getCredentials(authMode);
       const uuid = crypto.randomUUID();
       const targetAgentId = agentId || agentConfig.agentId;
       
@@ -145,17 +195,17 @@ export const newSession = async (agentId?: string) => {
   }, 2, 1500); // Retry up to 2 times with 1.5s base delay
 };
 
-export const getSession = async (agentId?: string) => {
+export const getSession = async (agentId?: string, authMode: AuthMode = "direct") => {
   "use cache";
-  const session = await newSession(agentId);
+  const session = await newSession(agentId, authMode);
   cacheTag("session");
   return session;
 };
 
-export const endSession = async () => {
+export const endSession = async (authMode: AuthMode = "direct") => {
   try {
-    const { accessToken, apiInstanceUrl } = await getToken();
-    const { sessionId } = await getSession();
+    const { accessToken, apiInstanceUrl } = await getCredentials(authMode);
+    const { sessionId } = await getSession(undefined, authMode);
     
     const { data } = await axios({
       method: "delete",
@@ -182,7 +232,8 @@ export const endSession = async () => {
 export const sendStreamingMessage = async (
   text: string,
   sequenceId: number,
-  agentId?: string
+  agentId?: string,
+  authMode: AuthMode = "direct"
 ) => {
   try {
     if (!text || text.trim().length === 0) {
@@ -193,8 +244,8 @@ export const sendStreamingMessage = async (
       throw new Error("Invalid sequence ID");
     }
     
-    const { accessToken, apiInstanceUrl } = await getToken();
-    const { sessionId } = await getSession(agentId);
+    const { accessToken, apiInstanceUrl } = await getCredentials(authMode);
+    const { sessionId } = await getSession(agentId, authMode);
 
     const { data } = await axios({
       method: "post",
