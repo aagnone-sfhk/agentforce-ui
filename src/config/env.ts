@@ -15,9 +15,15 @@ const envSchema = z.object({
 
 type Env = z.infer<typeof envSchema>;
 
+let cachedEnv: Env | null = null;
+
 function validateEnv(): Env {
+  if (cachedEnv) {
+    return cachedEnv;
+  }
+  
   try {
-    return envSchema.parse({
+    cachedEnv = envSchema.parse({
       SF_MY_DOMAIN_URL: process.env.SF_MY_DOMAIN_URL,
       SF_CONSUMER_KEY: process.env.SF_CONSUMER_KEY,
       SF_CONSUMER_SECRET: process.env.SF_CONSUMER_SECRET,
@@ -26,6 +32,7 @@ function validateEnv(): Env {
       NEXT_PUBLIC_APP_DESCRIPTION: process.env.NEXT_PUBLIC_APP_DESCRIPTION,
       NEXT_PUBLIC_APP_INTRO_MESSAGE: process.env.NEXT_PUBLIC_APP_INTRO_MESSAGE,
     });
+    return cachedEnv;
   } catch (error) {
     if (error instanceof z.ZodError) {
       const missingVars = error.errors.map((err) => err.path.join(".")).join(", ");
@@ -35,4 +42,9 @@ function validateEnv(): Env {
   }
 }
 
-export const env = validateEnv(); 
+// Lazy getter - only validates when accessed at runtime, not at build time
+export const env = new Proxy({} as Env, {
+  get(_target, prop: keyof Env) {
+    return validateEnv()[prop];
+  },
+});
