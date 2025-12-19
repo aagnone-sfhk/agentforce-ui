@@ -1,0 +1,190 @@
+---
+description: Guide for using the setup_applink.sh script to configure Heroku AppLink with Agentforce
+globs:
+  - bin/setup_applink.sh
+  - .env*
+  - app.json
+alwaysApply: false
+---
+
+# Heroku AppLink Setup for Agentforce
+
+This rule provides guidance on using `bin/setup_applink.sh` to configure a Heroku app for Agentforce Agent communication via Heroku AppLink.
+
+## Script Overview
+
+The `setup_applink.sh` script automates the configuration of:
+- Heroku AppLink addon setup
+- Salesforce org connection
+- Authentication (JWT or OAuth)
+- Agentforce Agent configuration
+- Optional Data Cloud connection
+- Optional API specification publishing
+
+## Prerequisites
+
+Before running the script, ensure:
+
+1. **Heroku CLI** installed with AppLink plugin:
+   ```bash
+   heroku plugins:install @heroku-cli/plugin-applink
+   ```
+
+2. **Salesforce CLI** authenticated to target org:
+   ```bash
+   sf org login web -a <your-org-alias>
+   ```
+
+3. **Heroku App** deployed with AppLink addon (via Heroku Button or manually)
+
+4. **Agentforce Agent** created in Salesforce Setup with its Agent ID
+
+5. **For AppLink JWT mode** (recommended):
+   - JWT private key at `jwt/server.key`
+   - Connected App configured for JWT Bearer flow
+   - Public key uploaded to Connected App
+
+6. **For Direct OAuth mode**:
+   - Connected App with Client Credentials flow enabled
+   - Consumer Key and Consumer Secret
+
+## Authentication Modes
+
+### AppLink JWT Mode (Default, Recommended)
+Uses Heroku AppLink SDK with JWT Bearer authentication. More secure for production.
+
+```bash
+./bin/setup_applink.sh \
+    --org-alias <sf-org-alias> \
+    --agent-id <agentforce-agent-id> \
+    --agent-user-email <agent-user@example.com>
+```
+
+### Direct OAuth Mode
+Uses OAuth 2.0 Client Credentials flow. Simpler setup for development.
+
+```bash
+./bin/setup_applink.sh \
+    --org-alias <sf-org-alias> \
+    --agent-id <agentforce-agent-id> \
+    --agent-user-email <agent-user@example.com> \
+    --auth-mode direct \
+    --consumer-key "3MVG9..." \
+    --consumer-secret "your-secret"
+```
+
+## Command Reference
+
+### Required Arguments
+| Argument | Description |
+|----------|-------------|
+| `--org-alias <alias>` | Salesforce CLI org alias |
+| `--agent-id <id>` | Agentforce Agent ID (starts with `0Xx`) |
+| `--agent-user-email <email>` | Email of the Agentforce service user |
+
+### Optional Arguments
+| Argument | Description |
+|----------|-------------|
+| `--auth-mode <mode>` | `applink` (default) or `direct` |
+| `--consumer-key <key>` | OAuth Consumer Key |
+| `--consumer-secret <secret>` | OAuth Consumer Secret |
+| `--include-data-cloud` | Also configure Data Cloud connection |
+| `--skip-api-publish` | Skip API spec publishing to Salesforce |
+
+## Environment Variables Set
+
+The script configures these Heroku config vars:
+
+| Variable | Description |
+|----------|-------------|
+| `SF_MY_DOMAIN_URL` | Salesforce instance URL |
+| `SF_AGENT_ID` | Agentforce Agent ID |
+| `SF_AUTH_MODE` | Authentication mode (`applink` or `direct`) |
+| `JWT_CONNECTION_NAME` | AppLink authorization name (applink mode) |
+| `SF_CONSUMER_KEY` | OAuth key (direct mode) |
+| `SF_CONSUMER_SECRET` | OAuth secret (direct mode) |
+| `DC_CONNECTION_NAME` | Data Cloud connection (if enabled) |
+| `HEROKU_APP_ID` | Heroku app identifier |
+
+## Common Workflows
+
+### Initial Setup (New App)
+```bash
+# 1. Deploy via Heroku Button or create app
+heroku create my-agentforce-app
+heroku addons:create heroku-applink -a my-agentforce-app
+git push heroku main
+
+# 2. Run setup script
+./bin/setup_applink.sh \
+    --org-alias my-sf-org \
+    --agent-id 0Xx000000000000 \
+    --agent-user-email agent@company.com
+```
+
+### Add Data Cloud Integration
+```bash
+./bin/setup_applink.sh \
+    --org-alias my-sf-org \
+    --agent-id 0Xx000000000000 \
+    --agent-user-email agent@company.com \
+    --include-data-cloud
+```
+
+### Development Setup (Direct Auth)
+```bash
+./bin/setup_applink.sh \
+    --org-alias my-sf-org \
+    --agent-id 0Xx000000000000 \
+    --agent-user-email agent@company.com \
+    --auth-mode direct \
+    --consumer-key "$SF_CONSUMER_KEY" \
+    --consumer-secret "$SF_CONSUMER_SECRET" \
+    --skip-api-publish
+```
+
+## Troubleshooting
+
+### JWT Key Not Found
+```bash
+# Generate JWT key pair
+openssl genrsa -out jwt/server.key 2048
+openssl rsa -in jwt/server.key -pubout -out jwt/server.pub
+# Upload jwt/server.pub to your Connected App in Salesforce
+```
+
+### AppLink Plugin Missing
+```bash
+heroku plugins:install @heroku-cli/plugin-applink
+```
+
+### Salesforce Org Not Authenticated
+```bash
+sf org login web -a <your-org-alias>
+```
+
+### Permission Set Assignment Fails
+Ensure the permission set exists in your org. The script creates `HerokuAgentsPermSet` when publishing the API spec.
+
+## Related Files
+
+- `bin/setup_applink.sh` - Main setup script
+- `jwt/server.key` - JWT private key (do not commit)
+- `jwt/server.pub` - JWT public key (upload to Connected App)
+- `api-spec.yaml` - OpenAPI spec for Agentforce actions
+- `app.json` - Heroku Button configuration
+- `.env` - Local development config (generated by script)
+
+## Finding Required Values
+
+### Agentforce Agent ID
+1. Go to Salesforce Setup
+2. Search for "Agents" or "Einstein Agents"
+3. Select your agent
+4. Copy the Agent ID from the URL or details page
+
+### Connected App Consumer Key/Secret
+1. Go to Salesforce Setup > App Manager
+2. Find your Connected App
+3. Click "View" to see Consumer Key
+4. Click "Manage Consumer Details" for the Secret
