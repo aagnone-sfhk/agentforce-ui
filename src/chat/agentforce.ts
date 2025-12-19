@@ -95,6 +95,7 @@ const getToken = async (): Promise<AuthCredentials> => {
  * @param authorizationName - The developer name of the AppLink authorization (default: "org_jwt")
  */
 const getTokenFromAppLink = async (authorizationName = "org_jwt"): Promise<AuthCredentials> => {
+  console.log(`[agentforce] Fetching credentials from AppLink SDK (authorization: ${authorizationName})`);
   try {
     const applink = await import("@heroku/applink");
     const sdk = applink.init();
@@ -106,13 +107,15 @@ const getTokenFromAppLink = async (authorizationName = "org_jwt"): Promise<AuthC
       throw new Error("Invalid AppLink authorization response: missing access token");
     }
     
+    console.log(`[agentforce] ✓ AppLink SDK returned credentials (domainUrl: ${authData.domainUrl}, token: ${authData.accessToken.substring(0, 20)}...)`);
+    
     return {
       accessToken: authData.accessToken,
       // Agent API uses api.salesforce.com, not the My Domain URL
       apiInstanceUrl: "https://api.salesforce.com",
     };
   } catch (error) {
-    console.error("AppLink authentication failed:", error);
+    console.error("[agentforce] ✗ AppLink authentication failed:", error);
     if (error instanceof Error) {
       throw new Error(`AppLink authentication failed: ${error.message}`);
     }
@@ -125,10 +128,15 @@ const getTokenFromAppLink = async (authorizationName = "org_jwt"): Promise<AuthC
  * @param mode - "direct" for OAuth client credentials, "applink" for Heroku AppLink SDK
  */
 const getCredentials = async (mode: AuthMode = "direct"): Promise<AuthCredentials> => {
+  console.log(`[agentforce] getCredentials called with mode: ${mode}`);
   if (mode === "applink") {
-    return getTokenFromAppLink();
+    const creds = await getTokenFromAppLink();
+    console.log(`[agentforce] AppLink credentials obtained - API URL: ${creds.apiInstanceUrl}`);
+    return creds;
   }
-  return getToken();
+  const creds = await getToken();
+  console.log(`[agentforce] Direct OAuth credentials obtained - API URL: ${creds.apiInstanceUrl}`);
+  return creds;
 };
 
 export const newSession = async (agentId?: string, authMode: AuthMode = "direct") => {

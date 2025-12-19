@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     }
     
     const authMode = getAuthMode();
+    console.log(`[/api/message] Auth mode: ${authMode} | Agent: ${agentId || 'default'} | Seq: ${sequenceId}`);
     const contentStream = await sendStreamingMessage(message, sequenceId, agentId, authMode);
     const headers = new Headers({
       "Content-Type": "text/event-stream",
