@@ -4,6 +4,18 @@ import axios from "axios";
 // Force dynamic rendering - SDK cannot be evaluated at build time
 export const dynamic = "force-dynamic";
 
+// Decode JWT to inspect claims (for debugging)
+function decodeJwt(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = Buffer.from(parts[1], 'base64').toString('utf8');
+    return JSON.parse(payload);
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const agentId = body.agentId || process.env.SF_AGENT_ID;
@@ -32,18 +44,28 @@ export async function POST(request: NextRequest) {
     };
 
     const accessToken = authData.accessToken;
-    const instanceUrl = authData.domainUrl;
+    // Ensure My Domain URL format (no trailing slash)
+    const myDomainUrl = authData.domainUrl.replace(/\/$/, '');
 
+    // Decode JWT to check scopes
+    const jwtClaims = decodeJwt(accessToken);
     console.log("Got AppLink credentials:");
-    console.log("  - Token prefix:", accessToken?.substring(0, 20) + "...");
-    console.log("  - Instance URL:", instanceUrl);
+    console.log("  - Token prefix:", accessToken?.substring(0, 30) + "...");
+    console.log("  - My Domain URL:", myDomainUrl);
+    console.log("  - JWT scopes:", jwtClaims?.scp);
+    console.log("  - JWT issuer:", jwtClaims?.iss);
+    console.log("  - JWT audience:", jwtClaims?.aud);
 
-    // Try to create an Agentforce session using AppLink credentials
+    // Build the API URL per Salesforce docs:
+    // https://developer.salesforce.com/docs/einstein/genai/guide/agent-api-get-started.html
+    const apiUrl = `${myDomainUrl}/einstein/ai-agent/v1/agents/${agentId}/sessions`;
+    
+    // Session payload per docs
     const uuid = crypto.randomUUID();
     const sessionPayload = {
       externalSessionKey: uuid,
       instanceConfig: {
-        endpoint: instanceUrl + "/",
+        endpoint: myDomainUrl + "/",
       },
       featureSupport: "Streaming",
       streamingCapabilities: {
@@ -53,11 +75,12 @@ export async function POST(request: NextRequest) {
     };
 
     console.log("Creating Agentforce session...");
-    console.log("URL:", `${instanceUrl}/einstein/ai-agent/v1/agents/${agentId}/sessions`);
+    console.log("API URL:", apiUrl);
+    console.log("Payload:", JSON.stringify(sessionPayload, null, 2));
 
     const sessionResponse = await axios({
       method: "post",
-      url: `${instanceUrl}/einstein/ai-agent/v1/agents/${agentId}/sessions`,
+      url: apiUrl,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
@@ -77,8 +100,9 @@ export async function POST(request: NextRequest) {
         externalSessionKey: uuid,
       },
       credentials_used: {
-        token_preview: accessToken?.substring(0, 20) + "...",
-        instance_url: instanceUrl,
+        token_preview: accessToken?.substring(0, 30) + "...",
+        my_domain_url: myDomainUrl,
+        jwt_scopes: jwtClaims?.scp,
       },
       tested_at: new Date().toISOString(),
     });
@@ -87,12 +111,13 @@ export async function POST(request: NextRequest) {
     const message = error instanceof Error ? error.message : "Unknown error";
     
     // Extract axios error details if available
-    let details = {};
+    let details: Record<string, unknown> = {};
     if (axios.isAxiosError(error)) {
       details = {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
+        url: error.config?.url,
       };
     }
 
