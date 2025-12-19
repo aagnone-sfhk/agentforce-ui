@@ -46,7 +46,7 @@ vi.mock('@heroku/applink', () => ({
   }),
 }));
 
-// Mock env config - JWT_CONNECTION_NAME
+// Mock env config - SF_JWT_CONNECTION_NAME
 vi.mock('@/config/env', () => ({
   getJwtConnectionName: () => 'test-jwt-connection',
 }));

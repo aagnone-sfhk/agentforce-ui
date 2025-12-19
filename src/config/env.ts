@@ -70,13 +70,21 @@ export function getAuthMode(): AuthModeConfig {
 }
 
 /**
- * Get the JWT connection name for AppLink authorization.
+ * Get the Salesforce JWT connection name for AppLink authorization.
  * Must be set when SF_AUTH_MODE is "applink".
  */
 export function getJwtConnectionName(): string {
-  const name = process.env.JWT_CONNECTION_NAME;
+  const name = process.env.SF_JWT_CONNECTION_NAME;
   if (!name) {
-    throw new Error("JWT_CONNECTION_NAME env var is required when using AppLink authentication");
+    throw new Error("SF_JWT_CONNECTION_NAME env var is required when using AppLink authentication");
   }
   return name;
+}
+
+/**
+ * Get the Data Cloud JWT connection name for AppLink authorization.
+ * Optional - only set when Data Cloud is configured with JWT auth.
+ */
+export function getDcJwtConnectionName(): string | undefined {
+  return process.env.DC_JWT_CONNECTION_NAME;
 }

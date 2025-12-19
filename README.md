@@ -64,7 +64,7 @@ heroku salesforce:authorizations:jwt:add \
     --login-url https://login.salesforce.com
 
 # Set the authorization name as a config var
-heroku config:set JWT_CONNECTION_NAME=<your-authorization-name>
+heroku config:set SF_JWT_CONNECTION_NAME=<your-authorization-name>
 ```
 
 ## Local Development

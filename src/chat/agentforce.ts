@@ -93,7 +93,7 @@ const getToken = async (): Promise<AuthCredentials> => {
 /**
  * Get authentication credentials from Heroku AppLink SDK.
  * Uses the JWT authorization configured via `heroku salesforce:authorizations:add:jwt`.
- * The authorization name is read from the JWT_CONNECTION_NAME env var.
+ * The authorization name is read from the SF_JWT_CONNECTION_NAME env var.
  */
 const getTokenFromAppLink = async (): Promise<AuthCredentials> => {
   const authorizationName = getJwtConnectionName();

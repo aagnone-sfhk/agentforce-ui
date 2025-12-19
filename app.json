@@ -27,8 +27,8 @@
       "value": "applink"
     },
     "SF_CONSUMER_KEY": {
-      "description": "Connected App Consumer Key (required for direct mode)",
-      "required": false,
+      "description": "Connected App Consumer Key (required for both modes)",
+      "required": true,
       "value": ""
     },
     "SF_CONSUMER_SECRET": {
