@@ -58,9 +58,17 @@ export async function GET() {
         response_keys: Object.keys(data),
       };
     } catch (error) {
+      let errorDetails = {};
+      if (axios.isAxiosError(error)) {
+        errorDetails = {
+          status: error.response?.status,
+          data: error.response?.data,
+        };
+      }
       results.oauth = {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
+        errorDetails,
         env_vars_present: { clientId: !!clientId, clientSecret: !!clientSecret, myDomainUrl },
       };
     }
