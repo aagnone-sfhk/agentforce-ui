@@ -1,8 +1,9 @@
 {
   "name": "Agentforce UI Demo",
-  "description": "Next.js demo app showcasing a custom UI for a Salesforce Agentforce Agent using the Agent API and Heroku",
+  "description": "Next.js demo app showcasing a custom UI for a Salesforce Agentforce Agent using the Agent API and Heroku AppLink",
   "repository": "https://github.com/aagnone-sfhk/agentforce-ui",
   "logo": "https://ui.agentforcedemos.com/images/agentforce.svg",
+  "keywords": ["agentforce", "salesforce", "heroku", "applink", "next.js"],
   "scripts": {
     "postdeploy": "curl --fail --location -X POST -H \"Content-Type: application/json\" -d \"{\\\"deploy_context\\\":\\\"${DEPLOY_CONTEXT}\\\",\\\"deployed_at\\\":\\\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\\\"}\" \"https://deploy.herokuapps.ai/heroku-app-deploy-events\""
   },
@@ -13,36 +14,40 @@
   ],
   "env": {
     "SF_MY_DOMAIN_URL": {
-      "description": "My Domain URL for your Salesforce org",
+      "description": "Salesforce My Domain URL (e.g., https://mycompany.my.salesforce.com)",
       "value": ""
     },
     "SF_AGENT_ID": {
-      "description": "ID of the Agentforce Agent you want to interact with",
+      "description": "Agentforce Agent ID from Salesforce Setup (starts with 0Xx)",
       "value": ""
     },
+    "SF_AUTH_MODE": {
+      "description": "Authentication mode: 'applink' (JWT) or 'direct' (OAuth Client Credentials)",
+      "value": "direct"
+    },
     "SF_CONSUMER_KEY": {
-      "description": "Consumer Key for Salesforce Connected App",
+      "description": "Connected App Consumer Key (required for direct mode)",
       "value": ""
     },
     "SF_CONSUMER_SECRET": {
-      "description": "Consumer Secret for Salesforce Connected App",
+      "description": "Connected App Consumer Secret (required for direct mode)",
       "value": ""
     },
     "DEPLOY_CONTEXT": {
-      "description": "Contextual info necessary for the initial deployment",
+      "description": "Deployment tracking context",
       "required": true,
       "value": ""
     },
     "NEXT_PUBLIC_APP_TITLE": {
-      "description": "Title of the application",
+      "description": "Title displayed in the application header",
       "value": "Agentforce Anywhere"
     },
     "NEXT_PUBLIC_APP_DESCRIPTION": {
-      "description": "Description of the application",
+      "description": "Application description for metadata",
       "value": "Your Agentforce agents at your fingertips"
     },
     "NEXT_PUBLIC_APP_INTRO_MESSAGE": {
-      "description": "Welcome message shown to users",
+      "description": "Welcome message shown to users in the chat interface",
       "value": "How can I help?"
     }
   }
