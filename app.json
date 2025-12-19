@@ -23,14 +23,17 @@
     },
     "SF_AUTH_MODE": {
       "description": "Authentication mode: 'applink' (JWT) or 'direct' (OAuth Client Credentials)",
-      "value": "direct"
+      "required": false,
+      "value": "applink"
     },
     "SF_CONSUMER_KEY": {
       "description": "Connected App Consumer Key (required for direct mode)",
+      "required": false,
       "value": ""
     },
     "SF_CONSUMER_SECRET": {
       "description": "Connected App Consumer Secret (required for direct mode)",
+      "required": false,
       "value": ""
     },
     "DEPLOY_CONTEXT": {
