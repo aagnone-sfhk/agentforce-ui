@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
 
     // Build the API URL per Salesforce docs:
     // https://developer.salesforce.com/docs/einstein/genai/guide/agent-api-get-started.html
-    const apiUrl = `${myDomainUrl}/einstein/ai-agent/v1/agents/${agentId}/sessions`;
+    // The Agent API uses api.salesforce.com, NOT the My Domain URL
+    const apiUrl = `https://api.salesforce.com/einstein/ai-agent/v1/agents/${agentId}/sessions`;
     
     // Session payload per docs
     const uuid = crypto.randomUUID();
