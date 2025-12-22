@@ -38,33 +38,69 @@ Before getting started, you'll need to set up your Salesforce Agentforce Agent. 
 - **CONSUMER_KEY** / **CONSUMER_SECRET**: OAuth credentials from your Salesforce Connected App
 - **MY_DOMAIN_URL**: Your Salesforce org's My Domain URL
 
-## 📹 Walkthrough Video
+## Getting Started
 
-[![Agentforce UI Walkthrough Video](https://i9.ytimg.com/vi_webp/wLgScF30rHM/mqdefault.webp?v=68cdcab7&sqp=CLCRy8YG&rs=AOn4CLAzcZ454ZpvAWGChJ18JxtDg1ddVg)](https://youtu.be/wLgScF30rHM)
+> **Note:** This setup requires the [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli) and [Salesforce CLI](https://developer.salesforce.com/tools/salesforcecli) to be installed.
 
-### Install/Update the Heroku AppLink CLI Plugin
+### 1. Install Prerequisites
 
 ```bash
+# Install Heroku AppLink CLI plugin
 heroku plugins:install @heroku-cli/plugin-applink
+
+# Authenticate to your Salesforce org
+sf org login web -a <your-org-alias>
 ```
 
+### 2. Generate JWT Certificate
+
 ```bash
-heroku salesforce:connect:jwt \
-    sf-jwt-agnone-storm \
-    -a agentforce-applink \
-    --client-id 3MVG9Rr0EZ2YOVMZngR8.D6lbT0EsYcVJGwOURP07Po89aofj3sN7ovR4BRKbjzICc2jcNbsyzkhX8NtLo2e3 \
-    --jwt-key-file jwt/server.key \
-    --username trailsignup.d122a25d342798@salesforce.com
+# Get your SF CLI authenticated username
+sf org display -o <your-org-alias> | grep Username
 
-heroku salesforce:authorizations:jwt:add \
-    <your-authorization-name> \
-    --client-id <your-connected-app-client-id> \
-    --jwt-key-file jwt/server.key \
-    --username <your-salesforce-username> \
-    --login-url https://login.salesforce.com
+# Generate certificate with that email
+./bin/generate_jwt_cert.sh --email <your-sf-username@example.com>
+```
 
-# Set the authorization name as a config var
-heroku config:set SF_JWT_CONNECTION_NAME=<your-authorization-name>
+### 3. Configure Salesforce Connected App
+
+1. Go to **Salesforce Setup > App Manager**
+2. Create or edit a Connected App
+3. Enable **"Use digital signatures"**
+4. Upload `jwt/server.crt`
+5. Under **Manage > Edit Policies**, set "Permitted Users" to "Admin approved users are pre-authorized"
+6. Add your user to the pre-authorized list
+
+### 4. Run AppLink Setup
+
+**For Cursor Users:** Use the `/setup-applink` slash command for guided, interactive setup.
+
+**For Non-Cursor Users:** Run the setup script directly:
+
+```bash
+./bin/setup_applink.sh \
+    --org-alias <your-org-alias> \
+    --agent-id <your-agentforce-agent-id> \
+    --agent-user-email <your-sf-username@example.com>
+```
+
+The script will prompt for the Connected App Consumer Key and configure:
+- Heroku AppLink JWT authorization
+- Salesforce org connection
+- Environment variables for the app
+
+### Alternative: Direct OAuth Mode
+
+For simpler development setups, use direct OAuth instead of JWT (skips steps 2-3):
+
+```bash
+./bin/setup_applink.sh \
+    --org-alias <your-org-alias> \
+    --agent-id <your-agentforce-agent-id> \
+    --agent-user-email <your-email@example.com> \
+    --auth-mode direct \
+    --consumer-key <your-consumer-key> \
+    --consumer-secret <your-consumer-secret>
 ```
 
 ## Local Development

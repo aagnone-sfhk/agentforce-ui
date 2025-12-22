@@ -2,8 +2,10 @@
 description: Guide for using the setup_applink.sh script to configure Heroku AppLink with Agentforce
 globs:
   - bin/setup_applink.sh
+  - bin/generate_jwt_cert.sh
   - .env*
   - app.json
+  - jwt/*
 alwaysApply: false
 ---
 
@@ -20,6 +22,28 @@ The `setup_applink.sh` script automates the configuration of:
 - Agentforce Agent configuration
 - Optional Data Cloud connection
 - Optional API specification publishing
+
+## Understanding the Two User Roles
+
+AppLink JWT mode involves **two distinct user concepts**:
+
+| Role | Purpose | How Determined |
+|------|---------|----------------|
+| **JWT Authentication User** | Authenticates the JWT Bearer connection to Salesforce | `sf org display -o <alias>` (SF CLI authenticated user) |
+| **Agentforce Service User** | User context under which the Agent operates | `--agent-user-email` parameter |
+
+### JWT Authentication User
+- The Salesforce user whose credentials authenticate the JWT flow
+- Email MUST match the certificate subject in `jwt/server.crt`
+- Must be pre-authorized in the Connected App OAuth policies
+- Retrieved automatically from `sf org display`
+
+### Agentforce Service User
+- The user context for Agentforce Agent operations
+- Gets permission sets assigned (`HerokuAgentsPermSet`, etc.)
+- Specified via `--agent-user-email` in setup_applink.sh
+
+These CAN be the same user, but are conceptually different and configured separately.
 
 ## Prerequisites
 
@@ -40,13 +64,83 @@ Before running the script, ensure:
 4. **Agentforce Agent** created in Salesforce Setup with its Agent ID
 
 5. **For AppLink JWT mode** (recommended):
-   - JWT private key at `jwt/server.key`
-   - Connected App configured for JWT Bearer flow
-   - Public key uploaded to Connected App
+   - JWT certificate generated with `bin/generate_jwt_cert.sh`
+   - Certificate email matches the JWT auth user (from `sf org display`)
+   - Connected App configured for JWT Bearer flow with certificate uploaded
+   - JWT auth user pre-authorized in Connected App policies
 
 6. **For Direct OAuth mode**:
    - Connected App with Client Credentials flow enabled
    - Consumer Key and Consumer Secret
+
+## JWT Certificate Setup
+
+For AppLink JWT mode, generate certificates using the helper script.
+
+### Identify the JWT Auth User
+
+First, determine the correct email for the certificate:
+
+```bash
+# This shows the SF CLI authenticated user - use this email for the certificate
+sf org display -o <your-org-alias> | grep Username
+```
+
+### Generate JWT Certificate
+
+```bash
+# Basic usage with JWT auth user email
+./bin/generate_jwt_cert.sh --email <jwt-auth-user@example.com>
+
+# With custom options
+./bin/generate_jwt_cert.sh \
+    --email <jwt-auth-user@example.com> \
+    --validity 730 \
+    --org "My Company"
+```
+
+### Helper Script Options
+
+| Option | Description |
+|--------|-------------|
+| `--email <email>` | **Required.** JWT auth user email (from `sf org display`) |
+| `--output-dir <dir>` | Output directory (default: `jwt`) |
+| `--key-size <bits>` | RSA key size: 2048 or 4096 (default: 4096) |
+| `--validity <days>` | Certificate validity in days (default: 365) |
+| `--org <name>` | Organization name in certificate |
+| `--force` | Overwrite existing files without prompting |
+
+### Generated Files
+
+| File | Description |
+|------|-------------|
+| `jwt/server.key` | Private key - **KEEP SECURE, DO NOT COMMIT** |
+| `jwt/server.crt` | Certificate - upload to Salesforce Connected App |
+| `jwt/server.pub` | Public key - for reference |
+
+### Validate Existing Certificate
+
+Before using existing certificates, validate the email matches the SF CLI user:
+
+```bash
+# Returns exit 0 if valid, exit 1 if mismatch or missing
+./bin/validate_jwt_cert.sh --org-alias <your-org-alias>
+
+# Quiet mode for scripting
+./bin/validate_jwt_cert.sh --org-alias <alias> --quiet && echo "OK" || echo "FAIL"
+```
+
+If validation fails, regenerate the certificate with the correct email.
+
+### Configure Connected App for JWT
+
+1. Go to Salesforce Setup > App Manager
+2. Find and edit your Connected App
+3. Check "Use digital signatures"
+4. Upload `jwt/server.crt`
+5. Under "Manage" > "Edit Policies":
+   - Set "Permitted Users" to "Admin approved users are pre-authorized"
+   - Add the JWT auth user to the pre-authorized list (via profiles or permission sets)
 
 ## Authentication Modes
 
@@ -54,10 +148,17 @@ Before running the script, ensure:
 Uses Heroku AppLink SDK with JWT Bearer authentication. More secure for production.
 
 ```bash
+# First, identify the JWT auth user
+sf org display -o <sf-org-alias> | grep Username
+
+# Generate the JWT certificate (if missing)
+./bin/generate_jwt_cert.sh --email <jwt-auth-user@example.com>
+
+# Then run setup (agent-user-email can be same or different)
 ./bin/setup_applink.sh \
     --org-alias <sf-org-alias> \
     --agent-id <agentforce-agent-id> \
-    --agent-user-email <agent-user@example.com>
+    --agent-user-email <agentforce-service-user@example.com>
 ```
 
 ### Direct OAuth Mode
@@ -67,7 +168,7 @@ Uses OAuth 2.0 Client Credentials flow. Simpler setup for development.
 ./bin/setup_applink.sh \
     --org-alias <sf-org-alias> \
     --agent-id <agentforce-agent-id> \
-    --agent-user-email <agent-user@example.com> \
+    --agent-user-email <agentforce-service-user@example.com> \
     --auth-mode direct \
     --consumer-key "3MVG9..." \
     --consumer-secret "your-secret"
@@ -109,12 +210,23 @@ The script configures these Heroku config vars:
 
 ## Common Workflows
 
-### AppLink Setup
+### Full AppLink JWT Setup (from scratch)
 ```bash
+# 1. Identify the JWT auth user (SF CLI authenticated user)
+sf org display -o my-sf-org | grep Username
+# Output: Username     admin@company.com
+
+# 2. Generate JWT certificate with that email
+./bin/generate_jwt_cert.sh --email admin@company.com
+
+# 3. Upload jwt/server.crt to Salesforce Connected App
+#    and pre-authorize the JWT auth user (manual step)
+
+# 4. Run AppLink setup (agent user can be same or different)
 ./bin/setup_applink.sh \
     --org-alias my-sf-org \
     --agent-id 0Xx000000000000 \
-    --agent-user-email agent@company.com \
+    --agent-user-email agent-service@company.com \
     --auth-mode applink \
     --include-data-cloud \
     --skip-api-publish
@@ -135,13 +247,47 @@ The script configures these Heroku config vars:
 ## Troubleshooting
 
 ### JWT Key Not Found
+Run the JWT certificate generator with the correct user:
 ```bash
-# Generate JWT key pair
-mkdir -p jwt
-openssl req -x509 -newkey rsa:4096 -keyout jwt/server.key -out jwt/server.crt -days 365 -nodes
-openssl x509 -pubkey -noout -in jwt/server.crt > jwt/server.pub
-# Upload jwt/server.crt to your Connected App in Salesforce
+# Get the JWT auth user email
+sf org display -o <alias> | grep Username
+
+# Generate certificate
+./bin/generate_jwt_cert.sh --email <jwt-auth-user@example.com>
 ```
+
+### JWT Authentication Fails
+The most common causes:
+
+1. **Email mismatch**: Certificate email doesn't match SF CLI authenticated user
+   ```bash
+   # Quick validation (exit 0 = valid, exit 1 = mismatch or missing)
+   ./bin/validate_jwt_cert.sh --org-alias <alias>
+   
+   # If mismatch, regenerate
+   JWT_USER=$(sf org display -o <alias> --json | jq -r '.result.username')
+   ./bin/generate_jwt_cert.sh --email "$JWT_USER" --force
+   ```
+
+2. **User not pre-authorized**: JWT auth user must be pre-authorized in Connected App
+   - Go to Connected App > Manage > Edit Policies
+   - Ensure user is in pre-authorized list
+
+3. **Certificate not uploaded**: Verify `server.crt` is uploaded to Connected App
+
+### Regenerate JWT Certificate
+If you need to regenerate (e.g., email mismatch or expired):
+```bash
+# Get the correct email first
+sf org display -o <alias> | grep Username
+
+# Will prompt for confirmation before overwriting
+./bin/generate_jwt_cert.sh --email <correct-email@example.com>
+
+# Or force overwrite
+./bin/generate_jwt_cert.sh --email <correct-email@example.com> --force
+```
+Remember to re-upload `jwt/server.crt` to Salesforce after regenerating.
 
 ### AppLink Plugin Missing
 ```bash
@@ -155,9 +301,12 @@ sf org login web -a <your-org-alias>
 
 ## Related Files
 
-- `bin/setup_applink.sh` - Main setup script
+- `bin/setup_applink.sh` - Main AppLink setup script
+- `bin/generate_jwt_cert.sh` - JWT certificate generator
+- `bin/validate_jwt_cert.sh` - JWT certificate validator (checks email matches SF CLI user)
 - `jwt/server.key` - JWT private key (do not commit)
-- `jwt/server.pub` - JWT public key (upload to Connected App)
+- `jwt/server.crt` - Certificate (upload to Connected App)
+- `jwt/server.pub` - Public key (for reference)
 - `app.json` - Heroku Button configuration
 - `.env` - Local development config (generated by script)
 
@@ -174,3 +323,15 @@ sf org login web -a <your-org-alias>
 2. Find your Connected App
 3. Click "View" to see Consumer Key
 4. Click "Manage Consumer Details" for the Secret
+
+### JWT Auth User (for certificate)
+The SF CLI authenticated user's username:
+```bash
+sf org display -o <your-org-alias> | grep Username
+```
+
+### Agentforce Service User
+The user you want the Agent to operate as. This is specified via `--agent-user-email` and can be:
+- The same as the JWT auth user
+- A dedicated service account
+- Any user with appropriate Agentforce permissions

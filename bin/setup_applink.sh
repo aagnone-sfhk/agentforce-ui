@@ -70,7 +70,7 @@ PREREQUISITES:
     - Heroku CLI with AppLink plugin: heroku plugins:install @heroku-cli/plugin-applink
     - Salesforce CLI authenticated to target org: sf org login web -a <alias>
     - Agentforce Agent created in Salesforce Setup
-    - (For applink mode) JWT private key file at jwt/server.key
+    - (For applink mode) JWT private key file at jwt/server.key (use file system to verify existence: ls -la jwt/server.key)
     - (For applink mode) Connected App configured for JWT Bearer flow
     - (For direct mode) Connected App with Client Credentials flow enabled
 
@@ -195,7 +195,7 @@ validate_prerequisites() {
     log_success "Salesforce CLI found"
 
     # Check AppLink plugin
-    if ! heroku plugins 2>/dev/null | grep -q "@heroku-cli/plugin-applink"; then
+    if ! heroku plugins 2>/dev/null | grep -q "applink"; then
         log_warn "AppLink plugin not found. Installing..."
         heroku plugins:install @heroku-cli/plugin-applink
     fi
@@ -269,13 +269,34 @@ setup_direct_auth() {
     echo ""
     log_info "Configuring direct OAuth authentication..."
 
+    # Set OAuth credentials
     heroku config:set \
         SF_AUTH_MODE="direct" \
         SF_CONSUMER_KEY="$consumer_key" \
         SF_CONSUMER_SECRET="$consumer_secret" \
         -a "$heroku_app_name"
-
     log_success "Direct OAuth credentials configured"
+
+    # Setup Salesforce connection (requires browser OAuth)
+    echo ""
+    log_info "Setting up Salesforce connection..."
+    local sf_connection_name="sf-${sf_org_alias}"
+    local sf_auth_name="auth-sf-${sf_org_alias}"
+    heroku salesforce:connect "$sf_connection_name" -a "$heroku_app_name"
+    heroku salesforce:authorizations:add "$sf_auth_name" -a "$heroku_app_name"
+    log_success "Salesforce connection established: $sf_connection_name"
+
+    # Optional: Data Cloud connection
+    if [[ "$include_data_cloud" == true ]]; then
+        echo ""
+        log_info "Setting up Data Cloud connection..."
+        local dc_connection_name="dc-${sf_org_alias}"
+        local dc_auth_name="auth-dc-${sf_org_alias}"
+        heroku datacloud:connect "$dc_connection_name" -a "$heroku_app_name"
+        heroku datacloud:authorizations:add "$dc_auth_name" -a "$heroku_app_name"
+        heroku config:set DC_CONNECTION_NAME="${dc_auth_name}" -a "$heroku_app_name"
+        log_success "Data Cloud connection established: $dc_connection_name"
+    fi
 }
 
 setup_applink_auth() {
@@ -306,7 +327,7 @@ setup_applink_auth() {
     # Set config vars
     heroku config:set \
         SF_AUTH_MODE="applink" \
-        SF_JWT_CONNECTION_NAME="applink:${jwt_auth_name}" \
+        SF_JWT_CONNECTION_NAME="${jwt_auth_name}" \
         -a "$heroku_app_name"
 
     log_success "AppLink JWT authentication configured"
@@ -323,7 +344,7 @@ setup_applink_auth() {
             --jwt-key-file jwt/server.key \
             --username "$sf_username"
 
-        heroku config:set DC_JWT_CONNECTION_NAME="applink:${dc_auth_name}" -a "$heroku_app_name"
+        heroku config:set DC_JWT_CONNECTION_NAME="${dc_auth_name}" -a "$heroku_app_name"
         log_success "Data Cloud JWT authorization configured"
     fi
 }
@@ -339,35 +360,6 @@ setup_agentforce_config() {
         -a "$heroku_app_name"
 
     log_success "Agentforce configuration set"
-}
-
-setup_salesforce_connection() {
-    echo ""
-    log_info "Setting up Salesforce connection..."
-
-    local sf_connection_name="sf-${sf_org_alias}"
-    local sf_auth_name="auth-sf-${sf_org_alias}"
-
-    heroku salesforce:connect "$sf_connection_name" -a "$heroku_app_name"
-    heroku salesforce:authorizations:add "$sf_auth_name" -a "$heroku_app_name"
-
-    log_success "Salesforce connection established: $sf_connection_name"
-}
-
-setup_data_cloud_connection() {
-    echo ""
-    log_info "Setting up Data Cloud connection..."
-
-    local dc_connection_name="dc-${sf_org_alias}"
-    local dc_auth_name="auth-dc-${sf_org_alias}"
-
-    heroku datacloud:connect "$dc_connection_name" -a "$heroku_app_name"
-    heroku datacloud:authorizations:add "$dc_auth_name" -a "$heroku_app_name"
-
-    # Set Data Cloud connection name config var
-    heroku config:set DC_CONNECTION_NAME="applink:${dc_auth_name}" -a "$heroku_app_name"
-
-    log_success "Data Cloud connection established: $dc_connection_name"
 }
 
 publish_api_spec() {
@@ -448,7 +440,7 @@ main() {
     detect_heroku_app
     get_sf_org_info
 
-    # Configure authentication
+    # Configure authentication (each mode handles its own connections)
     if [[ "$auth_mode" == "direct" ]]; then
         setup_direct_auth
     else
@@ -457,14 +449,6 @@ main() {
 
     # Set Agentforce-specific config
     setup_agentforce_config
-
-    # Setup Salesforce connection
-    setup_salesforce_connection
-
-    # Optional: Data Cloud connection (only for direct mode; applink mode handles it in setup_applink_auth)
-    if [[ "$include_data_cloud" == true && "$auth_mode" == "direct" ]]; then
-        setup_data_cloud_connection
-    fi
 
     # Optional: API spec publishing
     if [[ "$skip_api_publish" == false ]]; then

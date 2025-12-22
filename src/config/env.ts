@@ -7,7 +7,7 @@ const envSchema = z.object({
   // Salesforce Configuration
   SF_MY_DOMAIN_URL: z.string().url(),
   SF_CONSUMER_KEY: z.string().min(1),
-  SF_CONSUMER_SECRET: z.string().min(1),
+  SF_CONSUMER_SECRET: z.string().min(1).optional(),
   SF_AGENT_ID: z.string().min(1),
   
   // Authentication mode: "direct" (OAuth) or "applink" (Heroku AppLink SDK)
@@ -17,7 +17,10 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_TITLE: z.string().min(1).default("AI Chat Assistant"),
   NEXT_PUBLIC_APP_DESCRIPTION: z.string().min(1).default("Your intelligent AI assistant powered by Agentforce"),
   NEXT_PUBLIC_APP_INTRO_MESSAGE: z.string().min(1).default("Hello! I'm your AI assistant. How can I help you today?"),
-});
+}).refine(
+  (data) => data.SF_AUTH_MODE === "applink" || (data.SF_CONSUMER_SECRET && data.SF_CONSUMER_SECRET.length > 0),
+  { message: "SF_CONSUMER_SECRET is required when SF_AUTH_MODE is 'direct'", path: ["SF_CONSUMER_SECRET"] }
+);
 
 type Env = z.infer<typeof envSchema>;
 
@@ -29,10 +32,13 @@ function validateEnv(): Env {
   }
   
   try {
+    // Convert empty string to undefined for optional fields
+    const consumerSecret = process.env.SF_CONSUMER_SECRET || undefined;
+    
     cachedEnv = envSchema.parse({
       SF_MY_DOMAIN_URL: process.env.SF_MY_DOMAIN_URL,
       SF_CONSUMER_KEY: process.env.SF_CONSUMER_KEY,
-      SF_CONSUMER_SECRET: process.env.SF_CONSUMER_SECRET,
+      SF_CONSUMER_SECRET: consumerSecret,
       SF_AGENT_ID: process.env.SF_AGENT_ID,
       SF_AUTH_MODE: process.env.SF_AUTH_MODE,
       NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE,

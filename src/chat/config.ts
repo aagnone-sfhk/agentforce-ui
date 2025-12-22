@@ -16,9 +16,11 @@ class AgentForceConfiguration implements AgentForceConfig {
   }
 
   get credentials(): { clientId: string; clientSecret: string } {
+    // SF_CONSUMER_SECRET is guaranteed to exist in "direct" mode (validated by env schema)
+    // This getter is only called in direct mode OAuth flow
     return {
       clientId: env.SF_CONSUMER_KEY,
-      clientSecret: env.SF_CONSUMER_SECRET,
+      clientSecret: env.SF_CONSUMER_SECRET!,
     };
   }
 
